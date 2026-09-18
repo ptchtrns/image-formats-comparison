@@ -18,14 +18,21 @@ Everything runs client-side with the [jSquash](https://github.com/jamsinclair/jS
 
 ```sh
 npm install
-npm start        # python3 -m http.server 8080
+npm run dev      # Vite dev server, http://localhost:5173
 ```
 
-Open http://localhost:8080. A static server is required because ES modules and
-wasm cannot be loaded from `file://`.
+## Deploy
+
+Static build served from Cloudflare Workers (assets only, no worker code):
+
+```sh
+npm run deploy   # vite build && wrangler deploy
+```
+
+`wrangler login` first if not logged in. Config in `wrangler.jsonc`.
 
 ## Files
 
-- `index.html` — page, import map for `node_modules`, a few lines of CSS
+- `index.html` — page, a few lines of CSS
 - `app.js` — the whole app: benchmark definition, table rendering, encode loop
-- `original.jpg` — sample input
+- `wrangler.jsonc` — Cloudflare deploy config

@@ -72,11 +72,28 @@
     <body>
         <h1>Image compression benchmark</h1>
         <p>
-            Pick a JPEG or PNG. It is encoded in your browser to JPEG, WebP and
-            AVIF at six quality settings each, then decoded again and scored
-            against the original with SSIM. Every cell shows a 1:1 centre crop,
-            file size, encode time and SSIM. Click a size to open that image in
-            a new tab.
+            How much smaller are WebP and AVIF than JPEG at the same visual
+            quality? Pick a JPEG or PNG. It is encoded in your browser to JPEG,
+            WebP and AVIF at six quality settings each, then decoded again and
+            scored against the original with SSIM. Every cell shows a 1:1 centre
+            crop, file size, encode time and SSIM. Click a size to open that
+            image in a new tab.
+        </p>
+        <p>
+            The JPEG side uses
+            <a href="https://github.com/mozilla/mozjpeg">MozJPEG</a>, not plain
+            libjpeg — which is half the point: the encoder matters about as much
+            as the format. Google's often-quoted 25 – 34 % WebP saving was
+            measured against the reference libjpeg encoder; against MozJPEG a
+            good part of that gap disappears. Everything runs locally, nothing
+            is uploaded. Codecs are the
+            <a href="https://github.com/jamsinclair/jSquash">jSquash</a> wasm
+            builds of MozJPEG, libwebp and libavif.
+        </p>
+        <p>
+            This page is a benchmark. If you just want to convert an image, use
+            <a href="https://squoosh.app/">Squoosh</a>, which uses the same
+            codecs and exposes every encoder setting.
         </p>
 
         <p><input id="file" type="file" accept="image/jpeg,image/png" /></p>
@@ -96,7 +113,8 @@
                 The <code>q=</code> number in each cell is that codec's own
                 quality setting. It is <strong>not</strong> comparable across
                 formats — JPEG 70, WebP 70 and AVIF 70 are three unrelated
-                knobs. Compare cells by file size and SSIM (or by eye, using the
+                knobs, and even 100 is not common ground (see the notes).
+                Compare cells by file size and SSIM (or by eye, using the
                 crops), not by column.
             </p>
             <div class="scroll"><table id="lossy"></table></div>
@@ -106,13 +124,6 @@
         <h2>Notes</h2>
         <ul class="notes">
             <li>
-                <strong>Why no PNG column?</strong> PNG is a lossless format: it
-                has no quality setting, only compression effort (which changes
-                encode time, not the pixels). Its output would always be
-                pixel-identical to the input, so it is not comparable with the
-                lossy results above and is left out.
-            </li>
-            <li>
                 <strong>What the quality numbers mean.</strong> Each value is
                 passed straight to the encoder on a 0 – 100 scale, where 100 is
                 the least compression and 10 the most. The number is
@@ -120,36 +131,83 @@
                 <em>not</em> comparable across formats:
                 <ul>
                     <li>
-                        <strong>JPEG</strong> (mozjpeg): the classic libjpeg
+                        <strong>JPEG</strong> (MozJPEG): the classic libjpeg
                         scale. It scales the DCT quantisation tables; 100 keeps
-                        them at 1 (near-lossless), 50 uses the reference tables,
-                        lower values coarsen them further. At 90 and above
-                        chroma is kept at full resolution (4:4:4); below 90 the
-                        encoder switches to 4:2:0 subsampling, so 90 → 70 is a
-                        bigger visual step than the number suggests. Encoding
-                        uses
-                        <a href="https://github.com/mozilla/mozjpeg"
-                            >mozjpeg's</a
-                        >
-                        recommended settings (progressive, optimised Huffman
-                        coding, its own quant table), not plain libjpeg
-                        defaults.
+                        them at 1 (near-lossless, but still lossy), 50 uses the
+                        base table unscaled, lower values coarsen it further.
+                        MozJPEG also picks chroma subsampling from the quality:
+                        4:4:4 at 90 and above, 4:2:2 from 80 to 89, 4:2:0 below
+                        80. With the steps used here that means the 100 and 90
+                        columns keep full-resolution chroma and 70 and below are
+                        4:2:0, so 90 → 70 is a bigger visual step than the
+                        number suggests. Encoding uses MozJPEG's recommended
+                        settings (progressive, optimised Huffman coding, its own
+                        quant table), not plain libjpeg defaults.
                     </li>
                     <li>
                         <strong>WebP</strong> (libwebp): controls quantiser
-                        strength and filtering. Roughly, WebP at a given number
-                        looks like JPEG at a somewhat higher number, in a
-                        smaller file.
+                        strength and filtering. Lossy WebP is always 4:2:0 at 8
+                        bits per channel, so even q=100 loses chroma detail that
+                        JPEG at 90+ and AVIF keep. At very high quality WebP
+                        therefore falls behind; getting back to the original
+                        needs its separate lossless mode, which this page does
+                        not test. Roughly, WebP at a given number looks like
+                        JPEG at a somewhat higher number, in a smaller file.
                     </li>
                     <li>
                         <strong>AVIF</strong> (libavif + libaom): libavif maps
                         it linearly onto the AV1 quantiser (0 – 63, inverted).
                         AVIF holds up much better at low numbers than JPEG or
                         WebP, so AVIF 40 can be closer to JPEG 70 in appearance.
+                        q=100 means quantiser 0, which is mathematically
+                        lossless <em>only</em> with 4:4:4 chroma; this page uses
+                        the encoder's default 4:2:0, so the AVIF 100 column is a
+                        lossy, and much smaller, file. An AVIF file also has
+                        more container overhead than WebP, which costs it some
+                        of its advantage on very small images.
                     </li>
                 </ul>
                 Compare formats by looking at the image at a given file size,
                 not at the same quality number.
+            </li>
+            <li>
+                <strong>What kind of image it is matters.</strong> The results
+                depend heavily on the input:
+                <ul>
+                    <li>
+                        <strong>Transparency.</strong> JPEG has no alpha channel
+                        at all; the JPEG column silently drops it, and the SSIM
+                        here (luma only) does not penalise that, so ignore the
+                        JPEG row for transparent PNGs. WebP stores alpha as a
+                        separate plane and compresses it losslessly by default,
+                        which is why WebP often does poorly on images with large
+                        transparent areas; cwebp's <code>-alpha_q</code> can
+                        shrink it by simplifying the alpha first, but that
+                        quickly shows as banding. AVIF encodes alpha as a second
+                        AV1 image at the same quality.
+                    </li>
+                    <li>
+                        <strong>Content.</strong> JPEG handles photographs well
+                        and screenshots, text and flat UI badly. For those, PNG
+                        or lossless WebP is the right tool; for logos and icons,
+                        SVG usually is. This page only compares lossy encodes.
+                    </li>
+                    <li>
+                        <strong>Dimensions.</strong> AVIF's fixed overhead
+                        matters a lot for a tiny icon and not at all for a large
+                        photo, so WebP can win on small images. At the other
+                        end, WebP is limited to 16383 × 16383 pixels, which
+                        rules out very large panoramas and full-page
+                        screenshots; the WebP row will fail on such inputs.
+                    </li>
+                </ul>
+            </li>
+            <li>
+                <strong>Why no PNG column?</strong> PNG is a lossless format: it
+                has no quality setting, only compression effort (which changes
+                encode time, not the pixels). Its output would always be
+                pixel-identical to the input, so it is not comparable with the
+                lossy results above and is left out.
             </li>
             <li>
                 <strong>What SSIM means here.</strong> Each result is decoded
@@ -168,6 +226,24 @@
                 pixels of the decoded result at 1:1, so artefacts are visible
                 rather than inferred from a number. Zoom the page if the crops
                 are too small.
+            </li>
+            <li>
+                <strong>Compatibility.</strong> Browser support is no longer the
+                problem: 96.8 % of global usage for WebP and 95.4 % for AVIF (<a
+                    href="https://caniuse.com/webp"
+                    >caniuse</a
+                >, <a href="https://caniuse.com/avif">caniuse</a>, August 2026
+                data). Other software lags — PowerPoint for the web, for one,
+                accepts neither; only the Windows and macOS desktop editions do.
+                If the file leaves the browser, JPEG is still the safe choice.
+            </li>
+            <li>
+                <strong>Rules of thumb.</strong> AVIF when compressing
+                photographs fairly hard and you want the best quality per byte;
+                WebP when you want one format with simple, fast tooling; JPEG
+                with a modern encoder like MozJPEG when you need high fidelity
+                or the file leaves the browser; PNG or lossless WebP for
+                screenshots and UI; SVG for logos.
             </li>
         </ul>
 

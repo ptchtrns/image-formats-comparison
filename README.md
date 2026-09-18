@@ -12,7 +12,7 @@ PNG is deliberately not included: it is lossless and has no quality knob, so
 its output is not comparable with the lossy formats. See the notes at the
 bottom of the page for what the quality numbers mean per format.
 
-Everything runs client-side with the [jSquash](https://github.com/jamsinclair/jSquash) wasm codecs.
+Everything runs client-side with the [jSquash](https://github.com/jamsinclair/jSquash) wasm codecs (MozJPEG, libwebp, libavif). For everyday conversion rather than benchmarking, use [Squoosh](https://squoosh.app/), which wraps the same codecs.
 
 ## Run
 
@@ -34,5 +34,5 @@ npm run deploy   # vite build && wrangler deploy
 ## Files
 
 - `index.html` — page, a few lines of CSS
-- `app.js` — the whole app: benchmark definition, table rendering, encode loop
+- `app.ts` — the whole app: benchmark definition, table rendering, encode loop
 - `wrangler.jsonc` — Cloudflare deploy config

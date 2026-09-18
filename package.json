@@ -1,0 +1,16 @@
+{
+  "name": "image-compression-comparison",
+  "version": "2.0.0",
+  "description": "Browser-side image compression benchmark: JPEG, WebP and AVIF at several quality levels.",
+  "author": "Nikolai Zakharov",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "@jsquash/avif": "^2.1.1",
+    "@jsquash/jpeg": "^1.6.0",
+    "@jsquash/webp": "^1.5.0"
+  }
+}

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image compression benchmark</title>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "@jsquash/jpeg/": "./node_modules/@jsquash/jpeg/",
+        "@jsquash/webp/": "./node_modules/@jsquash/webp/",
+        "@jsquash/avif/": "./node_modules/@jsquash/avif/",
+        "wasm-feature-detect": "./node_modules/wasm-feature-detect/dist/esm/index.js"
+      }
+    }
+  </script>
+
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      max-width: 72rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      font-family: system-ui, sans-serif;
+      line-height: 1.4;
+    }
+    table { border-collapse: collapse; margin-bottom: 1.5rem; }
+    th, td {
+      border: 1px solid GrayText;
+      padding: 0.4em 0.7em;
+      text-align: right;
+      white-space: nowrap;
+      vertical-align: top;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    td.active { background: Mark; color: MarkText; }
+    small { display: block; color: GrayText; }
+    th.axis { text-align: center; font-weight: normal; color: GrayText; }
+    .scroll { overflow-x: auto; }
+    .crop { display: block; image-rendering: pixelated; margin: 0.3em 0; }
+    .caveat { border-left: 3px solid Mark; padding-left: 0.7em; }
+    #takeaway { font-weight: bold; }
+    .notes li { margin-bottom: 0.6em; }
+    .notes ul { margin-top: 0.4em; }
+  </style>
+</head>
+
+<body>
+  <h1>Image compression benchmark</h1>
+  <p>
+    Pick a JPEG or PNG. It is encoded in your browser to JPEG, WebP and AVIF at
+    six quality settings each, then decoded again and scored against the
+    original with SSIM. Every cell shows a 1:1 centre crop, file size, encode
+    time and SSIM. Click a size to open that image in a new tab.
+  </p>
+
+  <p><input id="file" type="file" accept="image/jpeg,image/png"></p>
+  <p id="status">Waiting for a file.</p>
+
+  <div id="results" hidden>
+    <h2>Original</h2>
+    <p id="original"></p>
+    <canvas id="original-crop" class="crop" title="Centre crop of the original, 1:1 pixels"></canvas>
+
+    <h2>Results</h2>
+    <p class="caveat">
+      The <code>q=</code> number in each cell is that codec's own quality
+      setting. It is <strong>not</strong> comparable across formats — JPEG 70,
+      WebP 70 and AVIF 70 are three unrelated knobs. Compare cells by file size
+      and SSIM (or by eye, using the crops), not by column.
+    </p>
+    <div class="scroll"><table id="lossy"></table></div>
+    <p id="takeaway"></p>
+  </div>
+
+  <h2>Notes</h2>
+  <ul class="notes">
+    <li>
+      <strong>Why no PNG column?</strong> PNG is a lossless format: it has no
+      quality setting, only compression effort (which changes encode time, not
+      the pixels). Its output would always be pixel-identical to the input, so it
+      is not comparable with the lossy results above and is left out.
+    </li>
+    <li>
+      <strong>What the quality numbers mean.</strong> Each value is passed
+      straight to the encoder on a 0 – 100 scale, where 100 is the least
+      compression and 10 the most. The number is <em>not</em> a percentage of
+      visual fidelity, and it is <em>not</em> comparable across formats:
+      <ul>
+        <li>
+          <strong>JPEG</strong> (mozjpeg): the classic libjpeg scale. It scales
+          the DCT quantisation tables; 100 keeps them at 1 (near-lossless), 50
+          uses the reference tables, lower values coarsen them further. At 90 and
+          above chroma is kept at full resolution (4:4:4); below 90 the encoder
+          switches to 4:2:0 subsampling, so 90 → 70 is a bigger visual step
+          than the number suggests. Encoding uses
+          <a href="https://github.com/mozilla/mozjpeg">mozjpeg's</a> recommended
+          settings (progressive, optimised Huffman coding, its own quant table),
+          not plain libjpeg defaults.
+        </li>
+        <li>
+          <strong>WebP</strong> (libwebp): controls quantiser strength and
+          filtering. Roughly, WebP at a given number looks like JPEG at a
+          somewhat higher number, in a smaller file.
+        </li>
+        <li>
+          <strong>AVIF</strong> (libavif + libaom): libavif maps it linearly
+          onto the AV1 quantiser (0 – 63, inverted). AVIF holds up much better
+          at low numbers than JPEG or WebP, so AVIF 40 can be closer to JPEG 70
+          in appearance.
+        </li>
+      </ul>
+      Compare formats by looking at the image at a given file size, not at the
+      same quality number.
+    </li>
+    <li>
+      <strong>What SSIM means here.</strong> Each result is decoded again and
+      compared with the original: mean SSIM over non-overlapping 8×8 luma
+      blocks. 1.000 is identical; roughly, ≥ 0.95 is hard to tell apart at
+      1:1, ≤ 0.90 is visibly degraded. It is a simplified SSIM (no Gaussian
+      window, luma only), fine for ranking encodes of the <em>same</em> image,
+      not a substitute for looking. The "estimated size at SSIM 0.95" line is
+      the fair cross-format comparison: equal measured quality, different
+      sizes. The size is interpolated between the two quality steps that
+      bracket 0.95, so it is an estimate, not an actual file.
+    </li>
+    <li>
+      <strong>Crops.</strong> Each cell shows the centre 200×200 pixels of the
+      decoded result at 1:1, so artefacts are visible rather than inferred from
+      a number. Zoom the page if the crops are too small.
+    </li>
+  </ul>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
